@@ -1,0 +1,260 @@
+import java.io.*;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
+import java.util.*;
+import java.util.stream.Collectors;
+
+public class SistemaEventos {
+
+    private final List<Usuario> usuarios;
+    private final List<Evento> eventos;
+    private static Usuario usuarioLogado;
+    private final String arquivoEventos = "events.data";
+    private final Scanner scanner;
+
+    public SistemaEventos() {
+        this.usuarios = new ArrayList<>();
+        this.eventos = new ArrayList<>();
+        this.scanner = new Scanner(System.in);
+        carregarEventos();
+    }
+
+    private void carregarEventos() {
+        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(arquivoEventos))) {
+            eventos.addAll((List<Evento>) ois.readObject());
+            System.out.println("Eventos carregados com sucesso do arquivo " + arquivoEventos);
+        } catch (FileNotFoundException e) {
+            System.out.println("Arquivo de eventos não encontrado. Iniciando com lista vazia.");
+        } catch (IOException | ClassNotFoundException e) {
+            System.err.println("Erro ao carregar eventos: " + e.getMessage());
+        }
+    }
+
+    private void salvarEventos() {
+        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(arquivoEventos))) {
+            oos.writeObject(eventos);
+            System.out.println("Eventos salvos com sucesso no arquivo " + arquivoEventos);
+        } catch (IOException e) {
+            System.err.println("Erro ao salvar eventos: " + e.getMessage());
+        }
+    }
+
+    public void menuPrincipal() {
+        System.out.println("Bem-vindo ao Sistema de Eventos!");
+        System.out.println("1. Cadastrar novo usuário");
+        System.out.println("2. Entrar (login)");
+        System.out.println("3. Sair");
+        System.out.print("Escolha uma opção: ");
+        int opcao = scanner.nextInt();
+        scanner.nextLine();
+
+        switch (opcao) {
+            case 1:
+                cadastrarUsuario();
+                break;
+            case 2:
+                loginUsuario();
+                break;
+            case 3:
+                System.out.println("Saindo do sistema...");
+                salvarEventos();
+                System.exit(0);
+                break;
+            default:
+                System.out.println("Opção inválida.");
+                menuPrincipal();
+        }
+    }
+
+    private void cadastrarUsuario() {
+        System.out.println("\n--- Cadastro de Usuário ---");
+        System.out.print("Digite seu nome: ");
+        String nome = scanner.nextLine();
+        System.out.print("Digite seu email: ");
+        String email = scanner.nextLine();
+        System.out.print("Digite sua cidade: ");
+        String cidade = scanner.nextLine();
+
+        Usuario novoUsuario = new Usuario(nome, email, cidade);
+        usuarios.add(novoUsuario);
+        System.out.println("Usuário " + nome + " cadastrado com sucesso!");
+        menuPrincipal();
+    }
+
+    private void loginUsuario() {
+        System.out.println("\n--- Login ---");
+        System.out.print("Digite seu email: ");
+        String email = scanner.nextLine();
+
+        Optional<Usuario> userOpt = usuarios.stream().filter(u -> u.getEmail().equalsIgnoreCase(email)).findFirst();
+        if (userOpt.isPresent()) {
+            usuarioLogado = userOpt.get();
+            System.out.println("Login realizado com sucesso! Bem-vindo(a), " + usuarioLogado.getNome() + ".");
+            menuLogado();
+        } else {
+            System.out.println("Usuário não encontrado. Tente novamente.");
+            menuPrincipal();
+        }
+    }
+
+    private void menuLogado() {
+        while (true) {
+            System.out.println("\n--- Menu Principal ---");
+            System.out.println("1. Cadastrar Evento");
+            System.out.println("2. Consultar Eventos");
+            System.out.println("3. Visualizar Eventos em que Participo");
+            System.out.println("4. Sair (Logout)");
+            System.out.print("Escolha uma opção: ");
+            int opcao = scanner.nextInt();
+            scanner.nextLine();
+
+            switch (opcao) {
+                case 1:
+                    cadastrarEvento();
+                    break;
+                case 2:
+                    consultarEventos();
+                    break;
+                case 3:
+                    visualizarEventosParticipando();
+                    break;
+                case 4:
+                    System.out.println("Saindo da sua conta, " + usuarioLogado.getNome() + "...");
+                    usuarioLogado = null;
+                    menuPrincipal();
+                    return;
+                default:
+                    System.out.println("Opção inválida.");
+            }
+        }
+    }
+
+    private void cadastrarEvento() {
+        System.out.println("\n--- Cadastro de Evento ---");
+        System.out.print("Nome do evento: ");
+        String nome = scanner.nextLine();
+        System.out.print("Endereço: ");
+        String endereco = scanner.nextLine();
+
+        System.out.println("Categorias disponíveis: " + Arrays.toString(Evento.Categoria.values()));
+        System.out.print("Categoria (digite uma das opções acima): ");
+        Evento.Categoria categoria;
+        try {
+            categoria = Evento.Categoria.valueOf(scanner.nextLine().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            System.out.println("Categoria inválida. Evento não cadastrado.");
+            return;
+        }
+
+        System.out.print("Data e Horário (formato dd/MM/yyyy HH:mm): ");
+        String dataHoraStr = scanner.nextLine();
+        LocalDateTime horario;
+        try {
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+            horario = LocalDateTime.parse(dataHoraStr, formatter);
+        } catch (Exception e) {
+            System.out.println("Formato de data e horário inválido. Evento não cadastrado.");
+            return;
+        }
+
+        System.out.print("Descrição do evento: ");
+        String descricao = scanner.nextLine();
+
+        Evento novoEvento = new Evento(nome, endereco, categoria, horario, descricao);
+        eventos.add(novoEvento);
+        System.out.println("Evento '" + nome + "' cadastrado com sucesso!");
+        salvarEventos();
+    }
+
+    private void consultarEventos() {
+        if (eventos.isEmpty()) {
+            System.out.println("\nNenhum evento cadastrado no momento.");
+            return;
+        }
+
+        System.out.println("\n--- Eventos Cadastrados ---");
+        
+        List<Evento> eventosOrdenados = ordenarEventos();
+        
+        for (int i = 0; i < eventosOrdenados.size(); i++) {
+            Evento evento = eventosOrdenados.get(i);
+            System.out.println("\n--- Evento " + (i + 1) + " ---");
+            System.out.println(evento.toString());
+            verificarStatusEvento(evento);
+        }
+
+        System.out.println("\n---------------------------");
+        System.out.print("Deseja participar de algum evento? (Digite o número ou '0' para voltar): ");
+        int escolha = scanner.nextInt();
+        scanner.nextLine();
+
+        if (escolha > 0 && escolha <= eventosOrdenados.size()) {
+            Evento eventoEscolhido = eventosOrdenados.get(escolha - 1);
+            eventoEscolhido.adicionarParticipante(usuarioLogado);
+            System.out.println("Presença confirmada no evento '" + eventoEscolhido.getNome() + "'!");
+            salvarEventos();
+        }
+    }
+    
+    private void visualizarEventosParticipando() {
+        List<Evento> eventosParticipando = eventos.stream()
+                .filter(e -> e.getParticipantes().contains(usuarioLogado))
+                .sorted(Comparator.comparing(Evento::getHorario))
+                .collect(Collectors.toList());
+
+        if (eventosParticipando.isEmpty()) {
+            System.out.println("\nVocê não está participando de nenhum evento.");
+            return;
+        }
+
+        System.out.println("\n--- Eventos Confirmados para Você ---");
+        for (int i = 0; i < eventosParticipando.size(); i++) {
+            Evento evento = eventosParticipando.get(i);
+            System.out.println("\n--- Evento " + (i + 1) + " ---");
+            System.out.println(evento.toString());
+            verificarStatusEvento(evento);
+        }
+
+        System.out.println("\n-------------------------------------");
+        System.out.print("Deseja cancelar a participação em algum evento? (Digite o número ou '0' para voltar): ");
+        int escolha = scanner.nextInt();
+        scanner.nextLine();
+
+        if (escolha > 0 && escolha <= eventosParticipando.size()) {
+            Evento eventoCancelado = eventosParticipando.get(escolha - 1);
+            eventoCancelado.removerParticipante(usuarioLogado);
+            System.out.println("Participação cancelada no evento '" + eventoCancelado.getNome() + "'.");
+            salvarEventos();
+        }
+    }
+    
+    private List<Evento> ordenarEventos() {
+        LocalDateTime agora = LocalDateTime.now();
+        return eventos.stream()
+                .sorted((e1, e2) -> {
+                    long diff1 = Math.abs(ChronoUnit.MINUTES.between(agora, e1.getHorario()));
+                    long diff2 = Math.abs(ChronoUnit.MINUTES.between(agora, e2.getHorario()));
+                    return Long.compare(diff1, diff2);
+                })
+                .collect(Collectors.toList());
+    }
+    
+    private void verificarStatusEvento(Evento evento) {
+        LocalDateTime agora = LocalDateTime.now();
+        if (evento.getHorario().isBefore(agora)) {
+            System.out.println("** STATUS: Já OCORREU **");
+        } else if (evento.getHorario().minusMinutes(60).isBefore(agora) && evento.getHorario().plusMinutes(60).isAfter(agora)) {
+            System.out.println("** STATUS: OCORRENDO AGORA **");
+        } else {
+            System.out.println("** STATUS: Futuro **");
+            long minutosFaltantes = ChronoUnit.MINUTES.between(agora, evento.getHorario());
+            System.out.println("Faltam " + minutosFaltantes / 60 + " horas e " + minutosFaltantes % 60 + " minutos.");
+        }
+    }
+
+    public static void main(String[] args) {
+        SistemaEventos sistema = new SistemaEventos();
+        sistema.menuPrincipal();
+    }
+}
