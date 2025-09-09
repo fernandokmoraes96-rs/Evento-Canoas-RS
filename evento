@@ -1,0 +1,92 @@
+import java.io.Serializable;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+
+public class Evento implements Serializable {
+    private static final long serialVersionUID = 1L;
+
+    public enum Categoria {
+        FESTA, SHOW, ESPORTIVO, CULTURAL, OUTRO
+    }
+
+    private String nome;
+    private String endereco;
+    private Categoria categoria;
+    private LocalDateTime horario;
+    private String descricao;
+    private List<Usuario> participantes;
+
+    public Evento(String nome, String endereco, Categoria categoria, LocalDateTime horario, String descricao) {
+        this.nome = nome;
+        this.endereco = endereco;
+        this.categoria = categoria;
+        this.horario = horario;
+        this.descricao = descricao;
+        this.participantes = new ArrayList<>();
+    }
+
+    // Getters
+    public String getNome() {
+        return nome;
+    }
+
+    public String getEndereco() {
+        return endereco;
+    }
+
+    public Categoria getCategoria() {
+        return categoria;
+    }
+
+    public LocalDateTime getHorario() {
+        return horario;
+    }
+
+    public String getDescricao() {
+        return descricao;
+    }
+
+    public List<Usuario> getParticipantes() {
+        return participantes;
+    }
+    
+    // Métodos para gerenciar participantes
+    public void adicionarParticipante(Usuario usuario) {
+        if (!participantes.contains(usuario)) {
+            participantes.add(usuario);
+        }
+    }
+    
+    public void removerParticipante(Usuario usuario) {
+        participantes.remove(usuario);
+    }
+
+    @Override
+    public String toString() {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+        return "Nome: " + nome + 
+               "\nEndereço: " + endereco + 
+               "\nCategoria: " + categoria +
+               "\nHorário: " + horario.format(formatter) +
+               "\nDescrição: " + descricao +
+               "\nParticipantes: " + participantes.size();
+    }
+    
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Evento evento = (Evento) o;
+        return Objects.equals(nome, evento.nome) &&
+               Objects.equals(endereco, evento.endereco) &&
+               Objects.equals(horario, evento.horario);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(nome, endereco, horario);
+    }
+}
